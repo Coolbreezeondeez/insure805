@@ -1,9 +1,10 @@
 import json
 import re
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
@@ -12,6 +13,29 @@ SITE_HTML_PATH = Path(settings.BASE_DIR) / "site" / "index.html"
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 ZIP_RE = re.compile(r"^\d{5}$")
+
+
+def send_via_resend(subject, body):
+    """Send an email through Resend's HTTP API. Raises on failure so the
+    caller can decide how to respond to the visitor."""
+    payload = json.dumps({
+        "from": settings.LEAD_FROM_EMAIL,
+        "to": [settings.LEAD_NOTIFY_TO],
+        "subject": subject,
+        "text": body,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return resp.status
 
 
 @ensure_csrf_cookie
@@ -63,22 +87,21 @@ def submit_lead(request):
         f"Situation: {situation or '(not specified)'}\n"
     )
 
-    if settings.EMAIL_HOST_USER and settings.EMAIL_HOST_PASSWORD:
-        send_mail(
-            subject=subject,
-            message=body,
-            from_email=settings.EMAIL_HOST_USER,
-            recipient_list=[settings.LEAD_NOTIFY_TO],
-            fail_silently=False,
-        )
-    else:
-        # Email isn't configured yet (missing env vars) — log instead of
-        # silently dropping the lead, and still tell the visitor it worked
-        # only if email actually sent. Fail loudly here so Ben notices in
-        # the Render logs rather than losing real leads.
+    if not settings.RESEND_API_KEY:
+        # Email isn't configured yet (missing env var) — fail loudly here
+        # so Ben notices in the Render logs rather than silently losing
+        # real leads.
         return JsonResponse(
             {"ok": False, "errors": {"__all__": "Email is not configured on the server."}},
             status=500,
+        )
+
+    try:
+        send_via_resend(subject, body)
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        return JsonResponse(
+            {"ok": False, "errors": {"__all__": "Email delivery failed."}},
+            status=502,
         )
 
     return JsonResponse({"ok": True})

@@ -64,14 +64,10 @@ SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
-# ---- Email (lead notifications) ----
+# ---- Email (lead notifications via Resend API) ----
 # Set these as environment variables in the Render dashboard.
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get("GMAIL_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+LEAD_FROM_EMAIL = os.environ.get("LEAD_FROM_EMAIL", "leads@insure805.com")
 LEAD_NOTIFY_TO = os.environ.get("LEAD_NOTIFY_TO", "candicevalexander@gmail.com")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
