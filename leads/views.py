@@ -38,6 +38,27 @@ def send_via_resend(subject, body):
         return resp.status
 
 
+def sitemap_xml(request):
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://insure805.com/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>"""
+    return HttpResponse(xml, content_type="application/xml")
+
+
+def robots_txt(request):
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://insure805.com/sitemap.xml",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
 @ensure_csrf_cookie
 def index(request):
     """Serve the landing page as a plain file (not a Django template) so
